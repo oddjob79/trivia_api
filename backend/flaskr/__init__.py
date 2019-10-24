@@ -18,6 +18,18 @@ def paginate_questions(request, selection):
 
   return current_questions
 
+def get_category_list():
+    # get full list of categories
+    categories = Category.query.order_by(Category.id).all()
+    # declare list for storing categories
+    catlist = []
+    # loop through categories and append the id and type to the list
+    for cat in categories:
+        catlist.append({
+            cat.id:cat.type
+        })
+
+    return catlist
 
 def create_app(test_config=None):
   # create and configure the app
@@ -59,19 +71,104 @@ def create_app(test_config=None):
   Clicking on the page numbers should update the questions.
   '''
 
-  @app.route('/api/questions')
-  def retrieve_questions():
-      selection = Question.query.order_by(Question.id).all()
-      current_questions = paginate_questions(request, selection)
+  @app.route('/api/categories/<string:category>/questions')
+  def retrieve_questions(category):
+    # # get full list of categories
+    # categories = Category.query.order_by(Category.id).all()
+    # # declare list for storing categories
+    # catlist = []
+    # # loop through categories and append the id and type to the list
+    # for cat in categories:
+    #     catlist.append({
+    #         cat.id:cat.type
+    #     })
+    #
+    if category == 'all':
+        selection = Question.query.order_by(Question.id).all()
+    else:
+        # Need to do this in a round about way, as no table relationship on category_id
+        # query the categories table to find the id of the category
+        selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
+        selection = Question.query.filter(Question.category==selected_cat.id).order_by(Question.id).all()
 
-      if current_questions is None:
+    current_questions = paginate_questions(request, selection)
+    catlist = get_category_list()
+
+    if current_questions is None:
+      abort(404) # TODO - REQUIRE specific error message here
+    else:
+      return jsonify({
+        'success': True,
+        'questions': current_questions,
+        'total_questions': len(current_questions),
+        'current_category': category,
+        'categories': catlist
+      })
+
+  @app.route('/api/categories')
+  def retrieve_categories():
+      selection = Category.query.order_by(Category.id).all()
+      current_categories = [category.format() for category in selection]
+
+      if current_categories is None:
           abort(404) # TODO - REQUIRE specific error message here
       else:
           return jsonify({
             'success': True,
-            'questions': current_questions,
-            'total_questions': len(current_questions)
+            'categories': current_categories,
+            'total_categories': len(current_categories)
           })
+
+  @app.route('/api/questions', methods=['POST'])
+  def create_question():
+
+      new_question = request.json.get('question', None)
+      new_answer = request.json.get('answer', None)
+      new_category = request.json.get('category', None)
+      new_difficulty = request.json.get('difficulty', None)
+
+      new_category = Category.query.filter(Category.type.ilike(new_category)).one_or_none()
+
+      try:
+          question = Question(question=new_question, answer=new_answer, category=new_category.id, difficulty=new_difficulty)
+          question.insert()
+
+          selection = Question.query.order_by(Question.id).all()
+          current_questions = paginate_questions(request, selection)
+
+          return jsonify({
+              'success': True,
+              'created': new_question,
+              'questions': current_questions,
+              'total_questions': len(Question.query.all())
+          })
+      except:
+          abort(422)
+
+  @app.route('/api/questions/<int:question_id>', methods=['DELETE'])
+  def delete_question(question_id):
+      try:
+          question = Question.query.filter(Question.id==question_id).one_or_none()
+
+          if question is None:
+              abort(404)
+
+          question.delete()
+          selection = Question.query.order_by(Question.id).all()
+          current_questions = paginate_questions(request, selection)
+
+          return jsonify({
+              'success': True,
+              'deleted': str(question_id) + ' - ' + question.question,
+              'questions': current_questions,
+              'total_questions': len(Question.query.all())
+          })
+      except:
+          abort(422)
+
+
+
+
 
 
 
