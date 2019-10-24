@@ -25,9 +25,10 @@ def get_category_list():
     catlist = []
     # loop through categories and append the id and type to the list
     for cat in categories:
-        catlist.append({
-            cat.id:cat.type
-        })
+        # catlist.append({
+        #     cat.id:cat.type
+        # })
+        catlist.append(cat.type)
 
     return catlist
 
@@ -73,7 +74,7 @@ def create_app(test_config=None):
 
 # GET QUESTIONS (NOT BY CATEGORY)
 
-  @app.route('/api/questions')
+  @app.route('/questions')
   def retrieve_all_questions():
     selection = Question.query.order_by(Question.id).all()
 
@@ -94,10 +95,11 @@ def create_app(test_config=None):
 
 # GET CATEGORIES
 
-  @app.route('/api/categories')
+  @app.route('/categories')
   def retrieve_categories():
-      selection = Category.query.order_by(Category.id).all()
-      current_categories = [category.format() for category in selection]
+      # selection = Category.query.order_by(Category.id).all()
+      # current_categories = [category.format() for category in selection]
+      current_categories = get_category_list()
 
       if current_categories is None:
           abort(404) # TODO - REQUIRE specific error message here
@@ -110,7 +112,7 @@ def create_app(test_config=None):
 
 # POST QUESTIONS
 
-  @app.route('/api/questions', methods=['POST'])
+  @app.route('/questions', methods=['POST'])
   def create_search_question():
       # body = request.get.json()
 
@@ -118,13 +120,12 @@ def create_app(test_config=None):
       new_answer = request.json.get('answer', None)
       new_category = request.json.get('category', None)
       new_difficulty = request.json.get('difficulty', None)
-      search_term = request.json.get('search_term', None)
+      search_term = request.json.get('searchTerm', None)
 
       try:
           if search_term is None:
               # CREATE question functionality
-              new_category = Category.query.filter(Category.type.ilike(new_category)).one_or_none()
-              question = Question(question=new_question, answer=new_answer, category=new_category.id, difficulty=new_difficulty)
+              question = Question(question=new_question, answer=new_answer, category=new_category, difficulty=new_difficulty)
               question.insert()
               selection = Question.query.order_by(Question.id).all()
               current_questions = paginate_questions(request, selection)
@@ -154,7 +155,7 @@ def create_app(test_config=None):
 
 # DELETE QUESTIONS
 
-  @app.route('/api/questions/<int:question_id>', methods=['DELETE'])
+  @app.route('/questions/<int:question_id>', methods=['DELETE'])
   def delete_question(question_id):
       try:
           question = Question.query.filter(Question.id==question_id).one_or_none()
@@ -168,7 +169,7 @@ def create_app(test_config=None):
 
           return jsonify({
               'success': True,
-              'deleted': str(question_id) + ' - ' + question.question,
+              'deleted': question_id,
               'questions': current_questions,
               'total_questions': len(Question.query.all())
           })
@@ -177,20 +178,19 @@ def create_app(test_config=None):
 
 
 # GET QUESTIONS (BASED ON CATEGORY - OR ALL)
-# Don't like this setup. This should be a GET request, but project specifically asked for POST request
-# Could have done a POST against the @app.route('/api/questions/') but this is already being used (correctly) to create questions,
-# so would need additional logic placed inside the method. Thought this was better.
-# Just wish we could use more appropriate METHODS for some of these endpoints...
+# Instructions say POST request, but this doesn't make much sense. Front end configured for GET request, so have done this instead
+  @app.route('/categories/<int:category_id>/questions')
+  def retrieve_questions_by_category(category_id):
 
-  @app.route('/api/categories/<string:category>/questions', methods=['POST'])
-  def retrieve_questions_by_category(category):
-
-    if category == 'all':
+    # use category_id of 0 for all questions
+    if category_id == 0:
         selection = Question.query.order_by(Question.id).all()
     else:
-        # Query the categories table to find the id of the category
-        selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
-        selection = Question.query.filter(Question.category==selected_cat.id).order_by(Question.id).all()
+        # # Query the categories table to find the id of the category
+        # selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
+        # selection = Question.query.filter(Question.category==selected_cat.id).order_by(Question.id).all()
+
+        selection = Question.query.filter(Question.category==category_id).order_by(Question.id).all()
 
     current_questions = paginate_questions(request, selection)
     catlist = get_category_list()
@@ -202,7 +202,7 @@ def create_app(test_config=None):
         'success': True,
         'questions': current_questions,
         'total_questions': len(current_questions),
-        'current_category': category,
+        'current_category': selection[0].category,
         'categories': catlist
       })
 
