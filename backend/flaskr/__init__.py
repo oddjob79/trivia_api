@@ -71,25 +71,11 @@ def create_app(test_config=None):
   Clicking on the page numbers should update the questions.
   '''
 
-  @app.route('/api/categories/<string:category>/questions')
-  def retrieve_questions(category):
-    # # get full list of categories
-    # categories = Category.query.order_by(Category.id).all()
-    # # declare list for storing categories
-    # catlist = []
-    # # loop through categories and append the id and type to the list
-    # for cat in categories:
-    #     catlist.append({
-    #         cat.id:cat.type
-    #     })
-    #
-    if category == 'all':
-        selection = Question.query.order_by(Question.id).all()
-    else:
-        # Need to do this in a round about way, as no table relationship on category_id
-        # query the categories table to find the id of the category
-        selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
-        selection = Question.query.filter(Question.category==selected_cat.id).order_by(Question.id).all()
+# GET QUESTIONS (NOT BY CATEGORY)
+
+  @app.route('/api/questions')
+  def retrieve_all_questions():
+    selection = Question.query.order_by(Question.id).all()
 
     current_questions = paginate_questions(request, selection)
     catlist = get_category_list()
@@ -101,9 +87,12 @@ def create_app(test_config=None):
         'success': True,
         'questions': current_questions,
         'total_questions': len(current_questions),
-        'current_category': category,
+        'current_category': 'all',
         'categories': catlist
       })
+
+
+# GET CATEGORIES
 
   @app.route('/api/categories')
   def retrieve_categories():
@@ -118,6 +107,8 @@ def create_app(test_config=None):
             'categories': current_categories,
             'total_categories': len(current_categories)
           })
+
+# POST QUESTIONS
 
   @app.route('/api/questions', methods=['POST'])
   def create_question():
@@ -145,6 +136,8 @@ def create_app(test_config=None):
       except:
           abort(422)
 
+# DELETE QUESTIONS
+
   @app.route('/api/questions/<int:question_id>', methods=['DELETE'])
   def delete_question(question_id):
       try:
@@ -166,6 +159,36 @@ def create_app(test_config=None):
       except:
           abort(422)
 
+
+# GET QUESTIONS (BASED ON CATEGORY - OR ALL)
+# Don't like this setup. This should be a GET request, but project specifically asked for POST request
+# Could have done a POST against the @app.route('/api/questions/') but this is already being used (correctly) to create questions,
+# so would need additional logic placed inside the method. Thought this was better.
+# Just wish we could use more appropriate METHODS for some of these endpoints...
+
+  @app.route('/api/categories/<string:category>/questions', methods=['POST'])
+  def retrieve_questions_by_category(category):
+
+    if category == 'all':
+        selection = Question.query.order_by(Question.id).all()
+    else:
+        # Query the categories table to find the id of the category
+        selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
+        selection = Question.query.filter(Question.category==selected_cat.id).order_by(Question.id).all()
+
+    current_questions = paginate_questions(request, selection)
+    catlist = get_category_list()
+
+    if current_questions is None:
+      abort(404) # TODO - REQUIRE specific error message here
+    else:
+      return jsonify({
+        'success': True,
+        'questions': current_questions,
+        'total_questions': len(current_questions),
+        'current_category': category,
+        'categories': catlist
+      })
 
 
 
