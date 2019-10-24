@@ -111,28 +111,44 @@ def create_app(test_config=None):
 # POST QUESTIONS
 
   @app.route('/api/questions', methods=['POST'])
-  def create_question():
+  def create_search_question():
+      # body = request.get.json()
 
       new_question = request.json.get('question', None)
       new_answer = request.json.get('answer', None)
       new_category = request.json.get('category', None)
       new_difficulty = request.json.get('difficulty', None)
-
-      new_category = Category.query.filter(Category.type.ilike(new_category)).one_or_none()
+      search_term = request.json.get('search_term', None)
 
       try:
-          question = Question(question=new_question, answer=new_answer, category=new_category.id, difficulty=new_difficulty)
-          question.insert()
+          if search_term is None:
+              # CREATE question functionality
+              new_category = Category.query.filter(Category.type.ilike(new_category)).one_or_none()
+              question = Question(question=new_question, answer=new_answer, category=new_category.id, difficulty=new_difficulty)
+              question.insert()
+              selection = Question.query.order_by(Question.id).all()
+              current_questions = paginate_questions(request, selection)
 
-          selection = Question.query.order_by(Question.id).all()
-          current_questions = paginate_questions(request, selection)
+              return jsonify({
+                  'success': True,
+                  'created': new_question,
+                  'questions': current_questions,
+                  'total_questions': len(Question.query.all())
+              })
+          else:
+              # Text search question functionality
+              selection = Question.query.filter(Question.question.ilike('%'+search_term+'%')).all()
+              current_questions = paginate_questions(request, selection)
 
-          return jsonify({
-              'success': True,
-              'created': new_question,
-              'questions': current_questions,
-              'total_questions': len(Question.query.all())
-          })
+              if current_questions is None:
+                abort(404) # TODO - REQUIRE specific error message here
+              else:
+                return jsonify({
+                  'success': True,
+                  'questions': current_questions,
+                  'total_questions': len(current_questions),
+                })
+
       except:
           abort(422)
 
