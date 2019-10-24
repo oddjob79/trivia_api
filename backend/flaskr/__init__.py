@@ -3,6 +3,9 @@ from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import random
+import logging
+
+from  sqlalchemy.sql.expression import func
 
 from models import setup_db, Question, Category
 
@@ -53,23 +56,41 @@ def create_app(test_config=None):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
 
-
   '''
   @TODO:
   Create an endpoint to handle GET requests
-  for all available categories.
+  for all available categories. - COMPLETE
   '''
+
+# GET CATEGORIES
+
+  @app.route('/categories')
+  def retrieve_categories():
+      # selection = Category.query.order_by(Category.id).all()
+      # current_categories = [category.format() for category in selection]
+      current_categories = get_category_list()
+
+      if current_categories is None:
+          abort(404) # TODO - REQUIRE specific error message here
+      else:
+          return jsonify({
+            'success': True,
+            'categories': current_categories,
+            'total_categories': len(current_categories)
+          })
+
+
   '''
   @TODO:
   Create an endpoint to handle GET requests for questions,
   including pagination (every 10 questions).
   This endpoint should return a list of questions,
-  number of total questions, current category, categories.
+  number of total questions, current category, categories. - COMPLETE
 
   TEST: At this point, when you start the application
   you should see questions and categories generated,
   ten questions per page and pagination at the bottom of the screen for three pages.
-  Clicking on the page numbers should update the questions.
+  Clicking on the page numbers should update the questions. - #TODO PAGINATION NOT WORKING CORRECTLY IN FRONTEND
   '''
 
 # GET QUESTIONS (NOT BY CATEGORY)
@@ -92,23 +113,28 @@ def create_app(test_config=None):
         'categories': catlist
       })
 
+  '''
+  @TODO:
+  Create an endpoint to POST a new question,
+  which will require the question and answer text,
+  category, and difficulty score. - COMPLETE
 
-# GET CATEGORIES
+  TEST: When you submit a question on the "Add" tab,
+  the form will clear and the question will appear at the end of the last page
+  of the questions list in the "List" tab. - COMPLETE
+  '''
 
-  @app.route('/categories')
-  def retrieve_categories():
-      # selection = Category.query.order_by(Category.id).all()
-      # current_categories = [category.format() for category in selection]
-      current_categories = get_category_list()
+  '''
+  @TODO:
+  Create a POST endpoint to get questions based on a search term.
+  It should return any questions for whom the search term
+  is a substring of the question. - COMPLETE
 
-      if current_categories is None:
-          abort(404) # TODO - REQUIRE specific error message here
-      else:
-          return jsonify({
-            'success': True,
-            'categories': current_categories,
-            'total_categories': len(current_categories)
-          })
+  TEST: Search by any phrase. The questions list will update to include
+  only question that include that string within their question.
+  Try using the word "title" to start. - COMPLETE
+  '''
+
 
 # POST QUESTIONS
 
@@ -153,6 +179,16 @@ def create_app(test_config=None):
       except:
           abort(422)
 
+  '''
+  @TODO:
+  Create an endpoint to DELETE question using a question ID. - COMPLETE
+
+  TEST: When you click the trash icon next to a question, the question will be removed.
+  This removal will persist in the database and when you refresh the page.
+   - COMPLETE
+  '''
+
+
 # DELETE QUESTIONS
 
   @app.route('/questions/<int:question_id>', methods=['DELETE'])
@@ -175,6 +211,15 @@ def create_app(test_config=None):
           })
       except:
           abort(422)
+
+  '''
+  @TODO:
+  Create a GET endpoint to get questions based on category. - COMPLETE
+
+  TEST: In the "List" tab / main screen, clicking on one of the
+  categories in the left column will cause only questions of that
+  category to be shown. - #TODO - NOT WORKING PROPERLY IN FRONTEND (category chosen is one in front of what is displayed)
+  '''
 
 
 # GET QUESTIONS (BASED ON CATEGORY - OR ALL)
@@ -206,51 +251,6 @@ def create_app(test_config=None):
         'categories': catlist
       })
 
-
-
-
-
-
-  '''
-  @TODO:
-  Create an endpoint to DELETE question using a question ID.
-
-  TEST: When you click the trash icon next to a question, the question will be removed.
-  This removal will persist in the database and when you refresh the page.
-  '''
-
-  '''
-  @TODO:
-  Create an endpoint to POST a new question,
-  which will require the question and answer text,
-  category, and difficulty score.
-
-  TEST: When you submit a question on the "Add" tab,
-  the form will clear and the question will appear at the end of the last page
-  of the questions list in the "List" tab.
-  '''
-
-  '''
-  @TODO:
-  Create a POST endpoint to get questions based on a search term.
-  It should return any questions for whom the search term
-  is a substring of the question.
-
-  TEST: Search by any phrase. The questions list will update to include
-  only question that include that string within their question.
-  Try using the word "title" to start.
-  '''
-
-  '''
-  @TODO:
-  Create a GET endpoint to get questions based on category.
-
-  TEST: In the "List" tab / main screen, clicking on one of the
-  categories in the left column will cause only questions of that
-  category to be shown.
-  '''
-
-
   '''
   @TODO:
   Create a POST endpoint to get questions to play the quiz.
@@ -262,6 +262,49 @@ def create_app(test_config=None):
   one question at a time is displayed, the user is allowed to answer
   and shown whether they were correct or not.
   '''
+
+  @app.route('/quizzes', methods=['POST'])
+  def play_quiz():
+      # logging.basicConfig(filename='debug.log',level=logging.DEBUG)
+
+      previous_questions = request.json.get('previous_questions', None)
+      quiz_category = request.json.get('quiz_category', None)
+
+      # iterate through quiz_category object to get key:value pair
+      key, category = next(iter(quiz_category.items()))
+
+      # category can be null (any category) - set to 0 and act on it
+      # question must be random
+      # question should not be in previous questions
+
+      try:
+        # frontend sets value of 'ALL' categories to 'click'
+        if category == 'click':
+            next_question = Question.query.order_by(func.random()).first()
+        else:
+            # use name given by frontend to find category class in backend
+            selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
+            next_question = Question.query.filter(Question.category==selected_cat.id).order_by(func.random()).first()
+
+        if next_question is None:
+            abort(404) # TODO - REQUIRE specific error message here
+        else:
+            return jsonify({
+            'success': True,
+            'question': next_question.format()
+            })
+      except:
+          abort(422)
+
+
+
+
+
+
+
+
+
+
 
   '''
   @TODO:
