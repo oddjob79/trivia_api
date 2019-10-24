@@ -273,9 +273,9 @@ def create_app(test_config=None):
       # iterate through quiz_category object to get key:value pair
       key, category = next(iter(quiz_category.items()))
 
-      # category can be null (any category) - set to 0 and act on it
-      # question must be random
-      # question should not be in previous questions
+      prevques = []
+      for question in previous_questions:
+          prevques.append(question)
 
       try:
         # frontend sets value of 'ALL' categories to 'click'
@@ -284,7 +284,7 @@ def create_app(test_config=None):
         else:
             # use name given by frontend to find category class in backend
             selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
-            next_question = Question.query.filter(Question.category==selected_cat.id).order_by(func.random()).first()
+            next_question = Question.query.filter(Question.category==selected_cat.id).filter(~Question.id.in_(prevques)).order_by(func.random()).first()
 
         if next_question is None:
             abort(404) # TODO - REQUIRE specific error message here
