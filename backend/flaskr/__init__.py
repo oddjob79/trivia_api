@@ -10,6 +10,8 @@ from  sqlalchemy.sql.expression import func
 from models import setup_db, Question, Category
 
 QUESTIONS_PER_PAGE = 10
+logging.basicConfig(level=logging.DEBUG)
+
 
 def paginate_questions(request, selection):
   page = request.args.get('page', 1, type=int)
@@ -28,9 +30,6 @@ def get_category_list():
     catlist = []
     # loop through categories and append the id and type to the list
     for cat in categories:
-        # catlist.append({
-        #     cat.id:cat.type
-        # })
         catlist.append(cat.type)
 
     return catlist
@@ -44,7 +43,7 @@ def create_app(test_config=None):
   @TODO: Set up CORS. Allow '*' for origins.
   Delete the sample route after completing the TODOs
   '''
-  cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+  cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
   '''
   @TODO: Use the after_request decorator to set Access-Control-Allow
@@ -66,12 +65,10 @@ def create_app(test_config=None):
 
   @app.route('/categories')
   def retrieve_categories():
-      # selection = Category.query.order_by(Category.id).all()
-      # current_categories = [category.format() for category in selection]
       current_categories = get_category_list()
 
-      if current_categories is None:
-          abort(404) # TODO - REQUIRE specific error message here
+      if not current_categories:
+          abort(500)
       else:
           return jsonify({
             'success': True,
@@ -90,7 +87,7 @@ def create_app(test_config=None):
   TEST: At this point, when you start the application
   you should see questions and categories generated,
   ten questions per page and pagination at the bottom of the screen for three pages.
-  Clicking on the page numbers should update the questions. - #TODO PAGINATION NOT WORKING CORRECTLY IN FRONTEND
+  Clicking on the page numbers should update the questions.
   '''
 
 # GET QUESTIONS (NOT BY CATEGORY)
@@ -102,13 +99,13 @@ def create_app(test_config=None):
     current_questions = paginate_questions(request, selection)
     catlist = get_category_list()
 
-    if current_questions is None:
+    if not current_questions:
       abort(404)
     else:
       return jsonify({
         'success': True,
         'questions': current_questions,
-        'total_questions': len(current_questions),
+        'total_questions': len(selection),
         'current_category': 'all',
         'categories': catlist
       })
@@ -146,49 +143,48 @@ def create_app(test_config=None):
       new_difficulty = request.json.get('difficulty', None)
       search_term = request.json.get('searchTerm', None)
 
-      try:
-          if search_term is None:
-              if (new_question is None) or (new_answer is None) or (new_category is None) or (new_difficulty is None):
-                  abort(400)
-              else:
-                  # CREATE question functionality
-                  question = Question(question=new_question, answer=new_answer, category=new_category, difficulty=new_difficulty)
-                  try:
-                      question.insert()
-                  except:
-                      abort(422)
+      # category posted from front-end is out of kilter with category in backend, so adjust
+      logging.debug(new_category)
+      new_category = int(new_category)+1
+      logging.debug(new_category)
 
-                  # return question data
-                  selection = Question.query.order_by(Question.id).all()
-                  current_questions = paginate_questions(request, selection)
-
-                  if current_questions is None:
-                    abort(404)
-                  else:
-                      return jsonify({
-                          'success': True,
-                          'created': new_question,
-                          'questions': current_questions,
-                          'total_questions': len(Question.query.all())
-                      })
+      if search_term is None:
+          if (new_question is None) or (new_answer is None) or (new_category is None) or (new_difficulty is None):
+              abort(400)
           else:
-              # Text search question functionality
+              # CREATE question functionality
+              question = Question(question=new_question, answer=new_answer, category=new_category, difficulty=new_difficulty)
               try:
-                  selection = Question.query.filter(Question.question.ilike('%'+search_term+'%')).all()
+                  question.insert()
               except:
-                  abort(400)
+                  abort(422)
+
+              # return question data
+              selection = Question.query.order_by(Question.id).all()
               current_questions = paginate_questions(request, selection)
 
-              if current_questions is None:
+              if not current_questions:
                 abort(404)
               else:
-                return jsonify({
-                  'success': True,
-                  'questions': current_questions,
-                  'total_questions': len(current_questions),
-                })
-      except:
-          abort(422)
+                  return jsonify({
+                      'success': True,
+                      'created': new_question,
+                      'questions': current_questions,
+                      'total_questions': len(Question.query.all())
+                  })
+      else:
+          # Text search question functionality
+          selection = Question.query.filter(Question.question.ilike('%'+search_term+'%')).all()
+          current_questions = paginate_questions(request, selection)
+
+          if not current_questions:
+            abort(404)
+          else:
+            return jsonify({
+              'success': True,
+              'questions': current_questions,
+              'total_questions': len(selection),
+            })
 
   '''
   @TODO:
@@ -209,16 +205,13 @@ def create_app(test_config=None):
       if question is None:
           abort(404)
       else:
-          try:
-              question.delete()
-          except:
-              abort(422)
+          question.delete()
 
       # return selection for display
       selection = Question.query.order_by(Question.id).all()
       current_questions = paginate_questions(request, selection)
 
-      if current_questions is None:
+      if not current_questions:
         abort(404)
       else:
           return jsonify({
@@ -256,13 +249,13 @@ def create_app(test_config=None):
     current_questions = paginate_questions(request, selection)
     catlist = get_category_list()
 
-    if current_questions is None:
+    if not current_questions:
       abort(404) # TODO - REQUIRE specific error message here
     else:
       return jsonify({
         'success': True,
         'questions': current_questions,
-        'total_questions': len(current_questions),
+        'total_questions': len(selection),
         'current_category': selection[0].category,
         'categories': catlist
       })
@@ -281,17 +274,20 @@ def create_app(test_config=None):
 
   @app.route('/quizzes', methods=['POST'])
   def play_quiz():
-      # logging.basicConfig(filename='debug.log',level=logging.DEBUG)
+      error = 422
 
       previous_questions = request.json.get('previous_questions', None)
       quiz_category = request.json.get('quiz_category', None)
 
-      # iterate through quiz_category object to get key:value pair
-      key, category = next(iter(quiz_category.items()))
+      try:
+          # iterate through quiz_category object to get key:value pair
+          key, category = next(iter(quiz_category.items()))
 
-      prevques = []
-      for question in previous_questions:
-          prevques.append(question)
+          prevques = []
+          for question in previous_questions:
+              prevques.append(question)
+      except:
+          abort(400)
 
       try:
         # frontend sets value of 'ALL' categories to 'click'
@@ -302,15 +298,16 @@ def create_app(test_config=None):
             selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
             next_question = Question.query.filter(Question.category==selected_cat.id).filter(~Question.id.in_(prevques)).order_by(func.random()).first()
 
-        if next_question is None:
-            abort(404)
+        if not next_question:
+            error = 404
+            abort()
         else:
             return jsonify({
             'success': True,
             'question': next_question.format()
             })
       except:
-          abort(422)
+          abort(error)
 
 
   '''
@@ -340,7 +337,7 @@ def create_app(test_config=None):
       return jsonify({
           "success": False,
           "error": 405,
-          "message": "Method not allowed - please use an appropriate method with your request, or perhaps you are missing some information?"
+          "message": "Method not allowed - please use an appropriate method with your request, or add a resource."
           }), 405
 
   @app.errorhandler(422)
@@ -348,7 +345,7 @@ def create_app(test_config=None):
       return jsonify({
           "success": False,
           "error": 422,
-          "message": "The request was valid, but there was an issue during processing."
+          "message": "The request was valid, but there was an issue during processing. Data may be out of range. Please consult the documentation and resubmit."
           }), 422
 
   @app.errorhandler(500)
@@ -356,7 +353,7 @@ def create_app(test_config=None):
       return jsonify({
           "success": False,
           "error": 500,
-          "message": "Internal Server Error. We don't quite know what happened here. Please consult the documentation to ensure your reques is correctly formatted."
+          "message": "Internal Server Error. We don't quite know what happened here. Please consult the documentation to ensure your request is correctly formatted."
           }), 500
 
 
