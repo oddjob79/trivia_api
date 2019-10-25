@@ -103,7 +103,7 @@ def create_app(test_config=None):
     catlist = get_category_list()
 
     if current_questions is None:
-      abort(404) # TODO - REQUIRE specific error message here
+      abort(404)
     else:
       return jsonify({
         'success': True,
@@ -140,8 +140,6 @@ def create_app(test_config=None):
 
   @app.route('/questions', methods=['POST'])
   def create_search_question():
-      # body = request.get.json()
-
       new_question = request.json.get('question', None)
       new_answer = request.json.get('answer', None)
       new_category = request.json.get('category', None)
@@ -150,32 +148,45 @@ def create_app(test_config=None):
 
       try:
           if search_term is None:
-              # CREATE question functionality
-              question = Question(question=new_question, answer=new_answer, category=new_category, difficulty=new_difficulty)
-              question.insert()
-              selection = Question.query.order_by(Question.id).all()
-              current_questions = paginate_questions(request, selection)
+              if (new_question is None) or (new_answer is None) or (new_category is None) or (new_difficulty is None):
+                  abort(400)
+              else:
+                  # CREATE question functionality
+                  question = Question(question=new_question, answer=new_answer, category=new_category, difficulty=new_difficulty)
+                  try:
+                      question.insert()
+                  except:
+                      abort(422)
 
-              return jsonify({
-                  'success': True,
-                  'created': new_question,
-                  'questions': current_questions,
-                  'total_questions': len(Question.query.all())
-              })
+                  # return question data
+                  selection = Question.query.order_by(Question.id).all()
+                  current_questions = paginate_questions(request, selection)
+
+                  if current_questions is None:
+                    abort(404)
+                  else:
+                      return jsonify({
+                          'success': True,
+                          'created': new_question,
+                          'questions': current_questions,
+                          'total_questions': len(Question.query.all())
+                      })
           else:
               # Text search question functionality
-              selection = Question.query.filter(Question.question.ilike('%'+search_term+'%')).all()
+              try:
+                  selection = Question.query.filter(Question.question.ilike('%'+search_term+'%')).all()
+              except:
+                  abort(400)
               current_questions = paginate_questions(request, selection)
 
               if current_questions is None:
-                abort(404) # TODO - REQUIRE specific error message here
+                abort(404)
               else:
                 return jsonify({
                   'success': True,
                   'questions': current_questions,
                   'total_questions': len(current_questions),
                 })
-
       except:
           abort(422)
 
@@ -193,24 +204,29 @@ def create_app(test_config=None):
 
   @app.route('/questions/<int:question_id>', methods=['DELETE'])
   def delete_question(question_id):
-      try:
-          question = Question.query.filter(Question.id==question_id).one_or_none()
+      question = Question.query.filter(Question.id==question_id).one_or_none()
 
-          if question is None:
-              abort(404)
+      if question is None:
+          abort(404)
+      else:
+          try:
+              question.delete()
+          except:
+              abort(422)
 
-          question.delete()
-          selection = Question.query.order_by(Question.id).all()
-          current_questions = paginate_questions(request, selection)
+      # return selection for display
+      selection = Question.query.order_by(Question.id).all()
+      current_questions = paginate_questions(request, selection)
 
+      if current_questions is None:
+        abort(404)
+      else:
           return jsonify({
               'success': True,
               'deleted': question_id,
               'questions': current_questions,
               'total_questions': len(Question.query.all())
           })
-      except:
-          abort(422)
 
   '''
   @TODO:
@@ -256,11 +272,11 @@ def create_app(test_config=None):
   Create a POST endpoint to get questions to play the quiz.
   This endpoint should take category and previous question parameters
   and return a random questions within the given category,
-  if provided, and that is not one of the previous questions.
+  if provided, and that is not one of the previous questions. - COMPLETE
 
   TEST: In the "Play" tab, after a user selects "All" or a category,
   one question at a time is displayed, the user is allowed to answer
-  and shown whether they were correct or not.
+  and shown whether they were correct or not. - COMPLETE
   '''
 
   @app.route('/quizzes', methods=['POST'])
@@ -287,7 +303,7 @@ def create_app(test_config=None):
             next_question = Question.query.filter(Question.category==selected_cat.id).filter(~Question.id.in_(prevques)).order_by(func.random()).first()
 
         if next_question is None:
-            abort(404) # TODO - REQUIRE specific error message here
+            abort(404)
         else:
             return jsonify({
             'success': True,
@@ -297,19 +313,52 @@ def create_app(test_config=None):
           abort(422)
 
 
-
-
-
-
-
-
-
-
-
   '''
   @TODO:
   Create error handlers for all expected errors
   including 404 and 422.
   '''
+
+  @app.errorhandler(400)
+  def bad_request(error):
+      return jsonify({
+          "success": False,
+          "error": 400,
+          "message": "Unable to process the request due to invalid data. Please reformat the request and resubmit."
+          }), 400
+
+  @app.errorhandler(404)
+  def not_found(error):
+      return jsonify({
+          "success": False,
+          "error": 404,
+          "message": "The requested resource could not be found."
+          }), 404
+
+  @app.errorhandler(405)
+  def method_not_allowed(error):
+      return jsonify({
+          "success": False,
+          "error": 405,
+          "message": "Method not allowed - please use an appropriate method with your request, or perhaps you are missing some information?"
+          }), 405
+
+  @app.errorhandler(422)
+  def unprocessable_entity(error):
+      return jsonify({
+          "success": False,
+          "error": 422,
+          "message": "The request was valid, but there was an issue during processing."
+          }), 422
+
+  @app.errorhandler(500)
+  def internal_server_error(error):
+      return jsonify({
+          "success": False,
+          "error": 500,
+          "message": "Internal Server Error. We don't quite know what happened here. Please consult the documentation to ensure your reques is correctly formatted."
+          }), 500
+
+
 
   return app
