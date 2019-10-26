@@ -27,10 +27,10 @@ def get_category_list():
     # get full list of categories
     categories = Category.query.order_by(Category.id).all()
     # declare list for storing categories
-    catlist = []
+    catlist = {}
     # loop through categories and append the id and type to the list
     for cat in categories:
-        catlist.append(cat.type)
+        catlist[str(cat.id)]=cat.type
 
     return catlist
 
@@ -142,11 +142,6 @@ def create_app(test_config=None):
       new_category = request.json.get('category', None)
       new_difficulty = request.json.get('difficulty', None)
       search_term = request.json.get('searchTerm', None)
-
-      # category posted from front-end is out of kilter with category in backend, so adjust
-      logging.debug(new_category)
-      new_category = int(new_category)+1
-      logging.debug(new_category)
 
       if search_term is None:
           if (new_question is None) or (new_answer is None) or (new_category is None) or (new_difficulty is None):
@@ -292,7 +287,7 @@ def create_app(test_config=None):
       try:
         # frontend sets value of 'ALL' categories to 'click'
         if category == 'click':
-            next_question = Question.query.order_by(func.random()).first()
+            next_question = Question.query.filter(~Question.id.in_(prevques)).order_by(func.random()).first()
         else:
             # use name given by frontend to find category class in backend
             selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
