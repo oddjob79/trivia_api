@@ -275,8 +275,8 @@ def create_app(test_config=None):
       quiz_category = request.json.get('quiz_category', None)
 
       try:
-          # iterate through quiz_category object to get key:value pair
-          key, category = next(iter(quiz_category.items()))
+          # retrieve category_id from quiz_category dictionary
+          category = quiz_category.get('id')
 
           prevques = []
           for question in previous_questions:
@@ -286,12 +286,10 @@ def create_app(test_config=None):
 
       try:
         # frontend sets value of 'ALL' categories to 'click'
-        if category == 'click':
+        if category == 0:
             next_question = Question.query.filter(~Question.id.in_(prevques)).order_by(func.random()).first()
         else:
-            # use name given by frontend to find category class in backend
-            selected_cat = Category.query.filter(Category.type.ilike(category)).one_or_none()
-            next_question = Question.query.filter(Question.category==selected_cat.id).filter(~Question.id.in_(prevques)).order_by(func.random()).first()
+            next_question = Question.query.filter(Question.category==category).filter(~Question.id.in_(prevques)).order_by(func.random()).first()
 
         if not next_question:
             error = 404

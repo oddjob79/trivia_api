@@ -41,21 +41,24 @@ class TriviaTestCase(unittest.TestCase):
         self.quiz_example_1 = {
             'previous_questions':[15,14],
             'quiz_category':{
-                'type': 'Geography'
+                'type': 'Geography',
+                'id': 3
             }
         }
 
         self.quiz_example_2 = {
             'previous_questions':[10,11],
             'quiz_category':{
-                'type': 'Sports'
+                'type': 'Sports',
+                'id': 6
             }
         }
 
         self.quiz_example_3 = {
             'previous_questions':[10,11],
             'quiz_category':{
-                'type': 'Politics'
+                'type': 'Politics',
+                'id': 'seven'
             }
         }
 
@@ -99,7 +102,7 @@ class TriviaTestCase(unittest.TestCase):
     #     self.assertEqual(data['success'], False)
     #     self.assertEqual(data['message'], 'Internal Server Error. We don\'t quite know what happened here. Please consult the documentation to ensure your request is correctly formatted.')
 
-    # GET ALL QUESTIONS
+# GET ALL QUESTIONS
     def test_retrieve_all_questions(self):
         res = self.client().get('/questions')
         data = json.loads(res.data)
@@ -118,7 +121,7 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data['success'], False)
         self.assertEqual(data['message'], 'The requested resource could not be found.')
 
-    # POST QUESTIONS
+# POST QUESTIONS
     def test_create_question(self):
         res = self.client().post('/questions', json=self.new_question)
         data = json.loads(res.data)
@@ -172,14 +175,14 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data['message'], 'The requested resource could not be found.')
 
 # DELETE QUESTIONS
-    # def test_delete_question(self):
-    #     res = self.client().delete('/questions/5')
-    #     data = json.loads(res.data)
-    #
-    #     self.assertEqual(res.status_code, 200)
-    #     self.assertEqual(data['success'], True)
-    #     self.assertTrue(len(data['questions']))
-    #     self.assertTrue(data['total_questions'])
+    def test_delete_question(self):
+        res = self.client().delete('/questions/5')
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(data['success'], True)
+        self.assertTrue(len(data['questions']))
+        self.assertTrue(data['total_questions'])
 
     def test_404_question_not_found(self):
         res = self.client().delete('/questions/09879876')
