@@ -24,32 +24,32 @@ Question
 
 '''
 class Question(db.Model):
-  __tablename__ = 'questions'
+    __tablename__ = 'questions'
 
-  id = Column(Integer, primary_key=True)
-  question = Column(String)
-  answer = Column(String)
-  category = Column(String)
-  difficulty = Column(Integer)
+    id = Column(Integer, primary_key=True)
+    question = Column(String)
+    answer = Column(String)
+    category = Column(String)
+    difficulty = Column(Integer)
 
-  def __init__(self, question, answer, category, difficulty):
+    def __init__(self, question, answer, category, difficulty):
     self.question = question
     self.answer = answer
     self.category = category
     self.difficulty = difficulty
 
-  def insert(self):
+    def insert(self):
     db.session.add(self)
     db.session.commit()
 
-  def update(self):
+    def update(self):
     db.session.commit()
 
-  def delete(self):
+    def delete(self):
     db.session.delete(self)
     db.session.commit()
 
-  def format(self):
+    def format(self):
     return {
       'id': self.id,
       'question': self.question,
@@ -63,15 +63,15 @@ Category
 
 '''
 class Category(db.Model):
-  __tablename__ = 'categories'
+    __tablename__ = 'categories'
 
-  id = Column(Integer, primary_key=True)
-  type = Column(String)
+    id = Column(Integer, primary_key=True)
+    type = Column(String)
 
-  def __init__(self, type):
+    def __init__(self, type):
     self.type = type
 
-  def format(self):
+    def format(self):
     return {
       'id': self.id,
       'type': self.type
