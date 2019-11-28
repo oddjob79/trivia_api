@@ -1,6 +1,6 @@
 # Build a RESTful API for a trivia game. Deploy REACT front-end, test using Python unittest and complete full documentation
 
-Second course in the [Udacity Full Stack Nanodegree](https://www.udacity.com/course/full-stack-web-developer-nanodegree--nd004): API Development and Documentation
+Second piece of coursework in the [Udacity Full Stack Nanodegree](https://www.udacity.com/course/full-stack-web-developer-nanodegree--nd004): API Development and Documentation
 
 Goal: Build a RESTful API and ensure that it connects and responds successfully to the REACT front-end. Test the API using Python Unittest and fully document the API in the project readme file.
 
